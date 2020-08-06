@@ -17,18 +17,7 @@
 ## Foundation, Inc.
 ##
 
-VERSION="1.6"
-
-# romcc requires lots of stack space, and win32 seems to have a fixed size
-# stack. Give romcc some room on mingw and cygwin.
-_OS=$(shell uname -s | cut -c -7)
-STACK=
-ifeq ($(_OS),MINGW32)
-	STACK=-Wl,--stack,16384000
-endif
-ifeq ($(_OS),CYGWIN_)
-	STACK=-Wl,--stack,16384000
-endif
+VERSION="Oxide_1.7"
 
 export src := $(shell pwd)
 export srctree := $(src)
@@ -42,7 +31,6 @@ export KCONFIG_AUTOCONFIG := $(obj)/auto.conf
 
 CONFIG_SHELL := sh
 KBUILD_DEFCONFIG := configs/defconfig
-UNAME_RELEASE := $(shell uname -r)
 HAVE_DOTCONFIG := $(wildcard .config)
 MAKEFLAGS += -rR --no-print-directory
 
@@ -51,25 +39,18 @@ ifneq ($(V),1)
 Q := @
 endif
 
-PCREFLAGS=-I/opt/local/include -L/opt/local/lib -lpcre
-
-ifneq ($(shell which i386-elf-gcc),)
-CROSS=i386-elf-
-endif
-AS=$(CROSS)as --32
-CC=$(CROSS)gcc -m32
-CPP=$(CROSS)cpp
-OBJCOPY=$(CROSS)objcopy
-NM=$(CROSS)nm
+AS=as --32
+CC=gcc -m32 -march=i386 -ffreestanding -nostdinc -fno-pic -fno-exceptions -fno-stack-protector -fno-omit-frame-pointer
+CPP=cpp
+OBJCOPY=objcopy
+NM=nm
 
 LDFLAGS=-Wa,--divide -nostdlib -nostartfiles -static -T serialice.ld -Wl,--defsym,ALIGNED_ROMSIZE=$(CONFIG_ROMSIZE)
 
-SOURCES = serialice.c serialice.h chipset.c serial.c types.h mainboard/*.c
+SOURCES = serialice.c serialice.h chipset.c serial.c types.h mainboard/*.c southbridge/*.c superio/*.c
 
 HOSTCC ?= gcc
-HOSTCXX ?= g++
 HOSTCFLAGS := -O2 -Wall -I$(srck) -I$(objk)
-HOSTCXXFLAGS := -I$(srck) -I$(objk)
 
 INCLUDES = -I$(obj)
 CFLAGS := -Wall -Werror -Os $(INCLUDES)
@@ -84,8 +65,7 @@ else
 
 include $(src)/.config
 
-TARGET-$(CONFIG_BUILD_ROMCC) = $(obj)/serialice.rom
-TARGET-$(CONFIG_BUILD_XMMSTACK)  = $(obj)/serialice-gcc.rom
+TARGET-y = $(obj)/serialice.rom
 all: $(TARGET-y)
 
 endif
@@ -119,45 +99,9 @@ $(obj)/serialice.elf: $(obj)/serialice.o $(obj)/start.o $(src)/serialice.ld
 	$(Q)$(CC) $(LDFLAGS) -o $@ $(obj)/serialice.o $(obj)/start.o
 	$(Q)$(NM) $@ | sort -u > $(obj)/serialice.map
 
-$(obj)/serialice.S: $(SOURCES) $(obj)/romcc
-	$(Q)printf "  ROMCC    $(subst $(shell pwd)/,,$(@))\n"
-	$(Q)$(obj)/romcc -mcpu=i386 $(INCLUDES) -I. -Imainboard -Isouthbridge -Isuperio -DVERSION=\"$(VERSION)\" -o $@.tmp $<
-	$(Q)printf ".section \".rom.text\"\n.globl main\nmain:\n" > $@
-	$(Q)cat $@.tmp >> $@
-	$(Q)rm $@.tmp
-
-
-$(obj)/romcc.o: $(src)/util/romcc.c
-	$(Q)printf "  HOSTCC   $(subst $(shell pwd)/,,$(@))\n"
-	$(Q)$(HOSTCC) $(HOSTCFLAGS) -c -o $@ $^
-
-$(obj)/romcc: $(obj)/romcc.o
-	$(Q)printf "  HOSTCC   $(subst $(shell pwd)/,,$(@))\n"
-	$(Q)$(HOSTCC) $(HOSTCFLAGS) $(STACK) -o $@ $^
-
-# #####################################################################
-
-$(obj)/serialice-gcc.rom: $(obj)/serialice-gcc.elf
-	$(Q)printf "  OBJCOPY  $(subst $(shell pwd)/,,$(@))\n"
-	$(Q)$(OBJCOPY) -O binary $< $@
-
-$(obj)/serialice-gcc.elf: $(obj)/serialice-gcc.o $(obj)/start.o serialice.ld
-	$(Q)printf "  LINK     $(subst $(shell pwd)/,,$(@))\n"
-	$(Q)$(CC) $(LDFLAGS) -o $@ $(obj)/serialice-gcc.o $(obj)/start.o
-	$(Q)$(NM) $@ | sort -u > $(obj)/serialice-gcc.map
-
-$(obj)/serialice-pre.s: $(SOURCES) $(obj)/xmmstack
+$(obj)/serialice.o: $(SOURCES) $(KCONFIG_AUTOHEADER)
 	$(Q)printf "  CC       $(subst $(shell pwd)/,,$(@))\n"
-	$(Q)$(CC) -O2 -march=i486 -mno-stackrealign -mpreferred-stack-boundary=2 $(INCLUDES) -I. -Imainboard -fomit-frame-pointer -fno-stack-protector -DVERSION=\"$(VERSION)\" -S $< -o $(obj)/serialice-pre.s
-
-$(obj)/serialice-gcc.S: $(obj)/serialice-pre.s
-	$(Q)printf "  XMMSTACK $(subst $(shell pwd)/,,$(@))\n"
-	$(Q)$(obj)/xmmstack -xmm $(obj)/serialice-pre.s
-	$(Q)mv $(obj)/serialice-pre.sn.s $(obj)/serialice-gcc.S
-
-$(obj)/xmmstack: $(src)/util/xmmstack.c
-	$(Q)printf "  HOSTCC   $(subst $(shell pwd)/,,$(@))\n"
-	$(Q)$(HOSTCC) $(HOSTCFLAGS) $(PCREFLAGS) -o $@ $^
+	$(Q)$(CC) $(INCLUDES) -I. -Imainboard -Isouthbridge -Isuperio -DVERSION=\"$(VERSION)\" -o $@ -c $<
 
 # #####################################################################
 

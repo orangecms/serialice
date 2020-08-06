@@ -39,14 +39,14 @@
 
 static void sio_init(void)
 {
-#if SIO_SPEED > 115200
+#if (SIO_SPEED > 115200) || CONFIG_SERIAL_COMPUTE_DIVISOR
 	/* "high speed" serial requires special chip setup
 	 * (to be done in superio_init), and special divisor
 	 * values (implement superio_serial_divisor() for that).
 	 * Maybe it requires even more, but so far that seems
 	 * to be enough.
 	 */
-	int divisor = superio_serial_divisor(SIO_SPEED);
+	int divisor = serial_divisor(SIO_SPEED);
 #else
 	int divisor = 115200 / SIO_SPEED;
 #endif

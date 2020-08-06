@@ -10,6 +10,13 @@ with minimal setup. No RAM is required to be initialized for this.
 The shell commands have a very compact syntax, because the shell is mostly
 meant to be used together with a SerialICE capable Qemu (See README.QEMU)
 
+This version has been modified from the original.  It supports the
+execute-from-DRAM model used by AMD Zen processors, and no longer supports the
+use of romcc or xmmstack to avoid using RAM for a stack.  It's certainly
+possible to add this back in as an option based on configuration, but since we
+don't intend to support any machine that requires RAM-less startup, that work
+hasn't been done.
+
 GETTING STARTED
 ---------------
 

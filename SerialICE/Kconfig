@@ -43,6 +43,10 @@ config BOARD_ASROCK_939A785GMH
 	bool "ASRock 939A785GMH"
 	select BUILD_XMMSTACK
 
+config BOARD_ASROCK_EPYCD8
+	bool "ASRock EPYCD8"
+	select SERIAL_COMPUTE_DIVISOR
+
 config BOARD_ASROCK_P4I65GV
 	bool "ASRock P4i65GV"
 
@@ -180,6 +184,7 @@ config BOARD_INIT
 	default "jetway_nf81_t56n_lf.c" if BOARD_JETWAY_NF81_T56N_LF
 	default "lenovo_x60.c" if BOARD_LENOVO_X60
 	default "zida_tx98-3d.c" if BOARD_ZIDA_TX98_3D
+	default "asrock_epycd8.c" if BOARD_ASROCK_EPYCD8
 
 config SOUTHBRIDGE_INIT
 	string
@@ -298,6 +303,11 @@ choice
 	default SERIAL_115200
 	depends on SERIAL
 
+config SERIAL_1500000
+	bool "1500000 bps"
+	help
+	  Set serial port speed to 1500000 bps.
+
 config SERIAL_460800
 	bool "460800 bps"
 	help
@@ -337,6 +347,7 @@ endchoice
 
 config SERIAL_BAUDRATE
 	int
+	default 1500000 if SERIAL_1500000
 	default 460800 if SERIAL_460800
 	default 230400 if SERIAL_230400
 	default 115200 if SERIAL_115200
@@ -417,6 +428,11 @@ config BUILD_XMMSTACK
 
 endchoice
 
+config SERIAL_COMPUTE_DIVISOR
+	bool "Always compute serial baud rate divisor"
+	depends on EXPERT && SERIAL
+	default n
+
 endmenu
 
 # blind default options in case CONFIG_EXPERT is not enabled.
@@ -446,3 +462,8 @@ config BUILD_XMMSTACK
 	bool
 	select HAVE_SSE
 	depends on !EXPERT
+
+config SERIAL_COMPUTE_DIVISOR
+	bool
+	depends on !EXPERT && SERIAL
+	default n

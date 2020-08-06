@@ -19,61 +19,30 @@
 
 #include "serialice.h"
 
-	.code32
-
-_c_main:
-	movl	%eax, %ebp
-
-	/* Enable FPU registers */
-	movl	%cr0, %eax
-	andl	$~(1 << 2), %eax
-	movl	%eax, %cr0
-
-#ifdef CONFIG_HAVE_SSE
-	/* enable SSE */
-	movl	%cr4, %eax
-	orl	$(3<<9), %eax
-	movl	%eax, %cr4
-#endif
-
-	movl	%ebp, %eax
-
-	/* Setting up the stack (xmmstack only?) */
-	xorl	%esp,%esp
-	movl	$0x7f,%esp #Start address of XMM/MMX stack.
-	movl	%esp,%dr2  #DR2 contains stack(low byte) and offset(hi byte)
-
-	jmp	main
-
-_pmode_start:
-	/* Set up protected mode registers */
-	lgdt	%cs:gdt
-	ljmp	$0x08, $1f
-1:
-	movl	%eax, %ebp
-	movw	$0x10, %ax
-	movw	%ax, %ds
-	movw	%ax, %es
-	movw	%ax, %ss
-	movw	%ax, %fs
-	movw	%ax, %gs
-
-	movl	%ebp, %eax
-
-	jmp	_c_main
-
-	.code16
-_start:
-	/* Go to protected mode */
+.align 4096
+.section ".text"
+.code16
+.type	_start16, @function
+_start16:
 	cli
 	movl	%eax, %ebp
+
+	movb	$0x1d, %al
+	outb	%al, $0x80
+
 	xorl	%eax, %eax
 	movl	%eax, %cr3
 	movw	%cs, %ax
 	shlw	$4, %ax
-	movw	$gdt, %bx
+
+	movw	%cs, %ax
+	shlw	$4, %ax
+	movw	$idt16_off, %bx
 	subw	%ax, %bx
-	data32	lgdt %cs:(%bx)
+	lidt	%cs:(%bx)
+	movw	$gdt16ptr_off, %bx
+	subw	%ax, %bx
+	lgdtl	%cs:(%bx)
 
 	movl	%cr0, %eax
 	andl	$0x7ffaffd1, %eax
@@ -81,63 +50,58 @@ _start:
 	movl	%eax, %cr0
 
 	movl	%ebp, %eax
-	data32	ljmp $0x08, $_pmode_start
+	ljmpl	$0x08, $_start32
 
+.align 4
+.code32
+.type	_start32, @function
+_start32:
+	movl	%eax, %ebp
 
-	/* GDT */
-	.align 4
-gdt:
-	.word	gdt_size
-	.long	gdt
+	movw	$0x10, %ax
+	movw	%ax, %ds
+	movw	%ax, %es
+	movw	%ax, %ss
+	movw	%ax, %fs
+	movw	%ax, %gs
+
+	movb	$0x1e, %al
+	outb	%al, $0x80
+
+	movl	%ebp, %eax
+	movl	$0x2000, %esp
+
+	jmp	main
+
+.align 4
+.globl	idt16
+idt16:
 	.word	0
+	.long	0
+	.word	0
+
+.globl	gdt16ptr
+gdt16ptr:
+	.word	gdt16_end - gdt16 - 1
+	.long	gdt16
+
+.align 4
+gdt16:
+	.word	0x0000, 0x0000
+	.byte	0x00, 0x00, 0x00, 0x00
 
 	.word	0xffff, 0x0000
 	.byte	0x00, 0x9b, 0xcf, 0x00
 
 	.word	0xffff, 0x0000
 	.byte	0x00, 0x93, 0xcf, 0x00
-gdt_size = (. - gdt - 1)
+gdt16_end:
 
-	/* Messages */
-	.section ".messages"
-	.globl	program_name
-program_name:
-	.ascii "SerialICE v" VERSION " (" __DATE__ ")"
-	.byte 0x00
-	.globl program_copyright
-program_copyright:
-	.string "Copyright (C) 2009 coresystems GmbH."
-
-	/* Reset Vector */
-	.section ".reset"
-	.globl	reset_vector
-reset_vector:
-	.code16
-	jmp _start
-
-	/* VIA romstrap */
-	.section ".romstrap", "a", @progbits
-#ifdef CONFIG_VIA_ROMSTRAP
-/* The pointer to above table should be at 0xffffd,
- * the table itself MUST be aligned to 128B it seems!
- */
-	.long via_romstrap
-#endif
-
-#ifdef CONFIG_CK804_ROMSTRAP
-/* Pointers to nvidia tables at 0xffffe0 */
-	. = 0x10;
-	.long ck804_romstrap
-	.long ck804_romstrap
-	.long ck804_romstrap
-	.long ck804_romstrap
-#endif
-
-#ifdef CONFIG_MCP55_ROMSTRAP
-/* Pointers to nvidia tables at 0xffffe0 */
-	. = 0x10;
-	.long mcp55_romstrap
-	.long mcp55_romstrap
-	.long mcp55_romstrap
-	.long mcp55_romstrap
-#endif
+.section ".reset", "ax", %progbits
+.code16
+.globl	_reset
+.type	_reset, @function
+_reset:
+	.byte	0xe9
+	.int 	_start16 - ( . + 2 )
+	.byte 0,0,0,0,0,0,0,0,0,0,0

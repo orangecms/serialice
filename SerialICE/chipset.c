@@ -17,6 +17,8 @@
  * Foundation, Inc.
  */
 
+#include <types.h>
+
 /* PCI access functions */
 
 #define PCI_ADDR(_bus, _dev, _fn, _reg) \
@@ -110,6 +112,12 @@ static inline void pnp_enter_ext_func_mode_ite(u16 port)
 	outb(0x01, port);
 	outb(0x55, port);
 	outb((port == 0x2e) ? 0x55 : 0xaa, port);
+}
+
+static inline void pnp_enter_ext_func_mode_aspeed(u16 port)
+{
+	outb(0xa5, port);
+	outb(0xa5, port);
 }
 
 static void pnp_exit_ext_func_mode(u16 port)
