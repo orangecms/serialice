@@ -55,8 +55,8 @@ static void sio_init(void)
 	outb(0x01, SIO_PORT + UART_FCR);
 	outb(0x03, SIO_PORT + UART_MCR);
 	outb(0x80 | lcs, SIO_PORT + UART_LCR);
-	outb(divisor & 0xff, SIO_PORT + UART_DLL);
 	outb((divisor >> 8) & 0xff, SIO_PORT + UART_DLM);
+	outb(divisor & 0xff, SIO_PORT + UART_DLL);
 	outb(lcs, SIO_PORT + UART_LCR);
 }
 

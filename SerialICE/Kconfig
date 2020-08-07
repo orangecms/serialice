@@ -308,6 +308,11 @@ config SERIAL_1500000
 	help
 	  Set serial port speed to 1500000 bps.
 
+config SERIAL_500000
+	bool "500000 bps"
+	help
+	  Set serial port speed to 500000 bps.
+
 config SERIAL_460800
 	bool "460800 bps"
 	help
@@ -348,6 +353,7 @@ endchoice
 config SERIAL_BAUDRATE
 	int
 	default 1500000 if SERIAL_1500000
+	default 500000 if SERIAL_500000
 	default 460800 if SERIAL_460800
 	default 230400 if SERIAL_230400
 	default 115200 if SERIAL_115200
